@@ -375,11 +375,28 @@ class NanoBananaProcessor:
             )
 
         prompt = (
-            "Virtual mirror try-on edit. Preserve the exact same person, face, pose, body proportions, camera "
-            "angle, lighting, and full background from image 1. Replace only the worn clothing on the person so "
-            "it matches the garment from image 2 with realistic fit and texture. Do not alter identity or scene. "
-            "Return one photorealistic edited image."
+            "You are a virtual fitting room. You will receive two images:\n"
+            "- IMAGE 1 (person): a photo of a person standing in front of a mirror or camera.\n"
+            "- IMAGE 2 (garment): a clothing item to try on.\n\n"
+            "Task: Generate a single photorealistic image of the person from IMAGE 1 wearing the garment from IMAGE 2.\n\n"
+            "Rules:\n"
+            "- Preserve the person's exact face, skin tone, hair, body shape, pose, and proportions from IMAGE 1.\n"
+            "- Preserve the original background, lighting, and camera angle from IMAGE 1.\n"
+            "- Keep all accessories (shoes, bags, jewelry) from IMAGE 1 unless hidden by the new garment.\n"
+            "- Replace ONLY the clothing with the garment from IMAGE 2, fitting it naturally to the person's body.\n"
+            "- Match the garment's color, pattern, texture, and style exactly as shown in IMAGE 2.\n"
+            "- Do not change the person's identity, expression, or any other aspect of the scene.\n"
+            "Output: one photorealistic edited image only."
         )
+
+        def _mime_type(data: bytes) -> str:
+            if data[:8] == b"\x89PNG\r\n\x1a\n":
+                return "image/png"
+            if data[:2] == b"\xff\xd8":
+                return "image/jpeg"
+            if data[:4] == b"RIFF" and b"WEBP" in data[:12]:
+                return "image/webp"
+            return "image/png"
 
         client = genai.Client(api_key=self.api_key)
         try:
@@ -388,8 +405,8 @@ class NanoBananaProcessor:
                 model=self.model,
                 contents=[
                     prompt,
-                    types.Part.from_bytes(data=base_image_bytes, mime_type="image/png"),
-                    types.Part.from_bytes(data=garment_image_bytes, mime_type="image/png"),
+                    types.Part.from_bytes(data=base_image_bytes, mime_type=_mime_type(base_image_bytes)),
+                    types.Part.from_bytes(data=garment_image_bytes, mime_type=_mime_type(garment_image_bytes)),
                 ],
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],
